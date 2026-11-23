@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Intervalo · Temporizador de entrenos</title>
+<meta name="description" content="Temporizador por intervalos con entrenos guardados. Funciona sin conexión.">
+<meta name="theme-color" content="#0b0d10">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Intervalo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-view="home" data-season="autumn">
+
+<div id="scene" aria-hidden="true"></div>
+
+<!-- ============ INICIO: lista de entrenos ============ -->
+<section id="view-home" class="view">
+  <div class="hero">
+  <header class="top">
+    <div>
+      <h1>Intervalo</h1>
+      <p class="sub">Tus entrenos guardados</p>
+    </div>
+    <div class="top-actions">
+      <button id="btn-import" class="pill" type="button">Importar</button>
+      <button id="btn-theme" class="icon" type="button" aria-label="Cambiar paisaje"></button>
+      <button id="btn-install" class="pill hidden" type="button">Instalar</button>
+      <button id="btn-mute" class="icon" type="button" aria-label="Silenciar sonido"></button>
+    </div>
+  </header>
+  <div class="hero-cap"><b id="season-name"></b><small id="season-line"></small></div>
+  </div>
+  <div class="home-sheet">
+  <nav class="tabs" aria-label="Secciones">
+    <button class="tab on" type="button" data-tab="workouts">Entrenos</button>
+    <button class="tab" type="button" data-tab="nutrition">Nutrición</button>
+    <button class="tab" type="button" data-tab="health">Salud</button>
+    <button class="tab" type="button" data-tab="history">Historial</button>
+  </nav>
+  <div id="resume" class="resume hidden"></div>
+  <div id="chips" class="chips"></div>
+  <main id="list" class="list"></main>
+  <section id="hist" class="hist hidden"></section>
+  <section id="nut" class="nut hidden"></section>
+  <section id="hl" class="hl hidden"></section>
+  </div>
+  <button id="fab" class="fab" type="button" aria-label="Crear entreno nuevo"></button>
+</section>
+
+<!-- ============ REGISTRO / CUESTIONARIO ============ -->
+<section id="view-onb" class="view hidden">
+  <header class="top">
+    <button id="ob-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2 id="ob-title">Crea tu perfil</h2>
+    <span class="spacer"></span>
+  </header>
+  <div class="form fm" id="ob-body"></div>
+  <footer class="savebar">
+    <button id="ob-skip" class="ghost" type="button">Ahora no</button>
+    <button id="ob-next" class="primary" type="button">Siguiente</button>
+  </footer>
+</section>
+
+<!-- ============ ENTRENADOR (IA) ============ -->
+<section id="view-coach" class="view hidden">
+  <header class="top">
+    <button id="co-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2>Entrenador</h2>
+    <button id="co-new" class="icon" type="button" aria-label="Nueva conversación"></button>
+  </header>
+  <div id="co-msgs" class="co-msgs" aria-live="polite"></div>
+  <div id="co-chips" class="co-chips"></div>
+  <form id="co-form" class="co-form" autocomplete="off">
+    <input id="co-in" type="text" maxlength="600" placeholder="Pregunta lo que quieras…" enterkeyhint="send" aria-label="Tu pregunta">
+    <button id="co-send" class="primary" type="submit">Enviar</button>
+  </form>
+  <p class="co-note">Orientativo: no sustituye a un médico ni a un fisioterapeuta.</p>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section id="view-edit" class="view hidden">
+  <header class="top">
+    <button id="e-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2 id="e-title">Nuevo entreno</h2>
+    <span class="spacer"></span>
+  </header>
+
+  <div class="form">
+    <label class="lbl" for="f-name">Nombre</label>
+    <input id="f-name" maxlength="40" placeholder="Ej.: Tabata de piernas" autocomplete="off">
+
+    <label class="lbl" for="f-cat">Categoría</label>
+    <input id="f-cat" maxlength="24" placeholder="Ej.: HIIT, Fuerza, Running" autocomplete="off">
+    <div id="cat-chips" class="chips small"></div>
+
+    <div class="row-field">
+      <div><span class="lbl">Cuenta atrás inicial</span><small>Preparación antes de empezar</small></div>
+      <div id="e-prep"></div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <span class="lbl">Series</span>
+        <div class="count">
+          <button class="step" type="button" data-count="sets" data-d="-1" aria-label="Menos series">−</button>
+          <b id="e-sets">1</b>
+          <button class="step" type="button" data-count="sets" data-d="1" aria-label="Más series">+</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">Rondas por serie</span>
+        <div class="count">
+          <button class="step" type="button" data-count="rounds" data-d="-1" aria-label="Menos rondas">−</button>
+          <b id="e-rounds">1</b>
+          <button class="step" type="button" data-count="rounds" data-d="1" aria-label="Más rondas">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="row-field">
+      <div><span class="lbl">Descanso entre series</span><small>0 = sin descanso</small></div>
+      <div id="e-setrest"></div>
+    </div>
+
+    <h3 class="sec">Fases de cada ronda</h3>
+    <div id="phases"></div>
+    <div class="addrow">
+      <button class="ghost work" type="button" data-add="work">+ Trabajo</button>
+      <button class="ghost rest" type="button" data-add="rest">+ Descanso</button>
+    </div>
+    <p class="hint">El último descanso de cada serie se omite: usa «Descanso entre series» para separar series.</p>
+  </div>
+
+  <footer class="savebar">
+    <div class="total">
+      <small>Tiempo total estimado</small>
+      <strong id="e-total">0:00</strong>
+      <small id="e-count"></small>
+    </div>
+    <button id="e-save" class="primary" type="button">Guardar</button>
+  </footer>
+</section>
+
+<!-- ============ NUTRICIÓN: AÑADIR ALIMENTO ============ -->
+<section id="view-nadd" class="view hidden">
+  <header class="top">
+    <button id="na-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2 id="na-title">Añadir alimento</h2>
+    <span class="spacer"></span>
+  </header>
+  <div class="form na">
+    <div id="na-meals" class="chips small"></div>
+    <div class="seg" id="na-tabs">
+      <button type="button" data-nt="lib" class="on">Mis alimentos</button>
+      <button type="button" data-nt="new">Nuevo alimento</button>
+    </div>
+    <div id="na-lib">
+      <input id="na-search" type="search" placeholder="Buscar alimento" autocomplete="off" aria-label="Buscar alimento">
+      <div id="na-recent"></div>
+      <div id="na-list"></div>
+    </div>
+    <div id="na-new" class="hidden">
+      <label class="lbl" for="nf-name">Nombre</label>
+      <input id="nf-name" maxlength="40" placeholder="Ej.: Arroz con pollo" autocomplete="off">
+      <div class="seg" id="nf-unit">
+        <button type="button" data-nb="g" class="on">Valores por 100 g</button>
+        <button type="button" data-nb="ud">Por unidad o ración</button>
+      </div>
+      <div class="nf-grid">
+        <div><label class="lbl" for="nf-kcal">Calorías (kcal)</label><input id="nf-kcal" inputmode="decimal" autocomplete="off"></div>
+        <div><label class="lbl" for="nf-p">Proteína (g)</label><input id="nf-p" inputmode="decimal" autocomplete="off"></div>
+        <div><label class="lbl" for="nf-c">Hidratos (g)</label><input id="nf-c" inputmode="decimal" autocomplete="off"></div>
+        <div><label class="lbl" for="nf-fat">Grasas (g)</label><input id="nf-fat" inputmode="decimal" autocomplete="off"></div>
+      </div>
+      <div id="nf-amountbox">
+        <label class="lbl" for="nf-amount" id="nf-amount-l">Cantidad que has comido (g)</label>
+        <input id="nf-amount" inputmode="decimal" value="100" autocomplete="off">
+        <label class="check"><input type="checkbox" id="nf-save" checked><span>Guardar en mis alimentos</span></label>
+        <div class="nf-prev" id="nf-prev"></div>
+      </div>
+      <button id="nf-add" class="primary wide" type="button">Añadir</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NUTRICIÓN: OBJETIVOS ============ -->
+<section id="view-ngoal" class="view hidden">
+  <header class="top">
+    <button id="ng-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2>Objetivos diarios</h2>
+    <span class="spacer"></span>
+  </header>
+  <div class="form">
+    <div class="nf-grid">
+      <div><label class="lbl" for="ng-kcal">Calorías (kcal)</label><input id="ng-kcal" inputmode="numeric" autocomplete="off"></div>
+      <div><label class="lbl" for="ng-p">Proteína (g)</label><input id="ng-p" inputmode="decimal" autocomplete="off"></div>
+      <div><label class="lbl" for="ng-c">Hidratos (g)</label><input id="ng-c" inputmode="decimal" autocomplete="off"></div>
+      <div><label class="lbl" for="ng-fat">Grasas (g)</label><input id="ng-fat" inputmode="decimal" autocomplete="off"></div>
+    </div>
+    <p id="ng-check" class="hint"></p>
+    <label class="lbl" for="ng-water">Agua (ml al día)</label>
+    <input id="ng-water" inputmode="numeric" autocomplete="off">
+
+    <h3 class="sec">Calculadora orientativa</h3>
+    <div class="seg" id="ng-sex">
+      <button type="button" data-ns="m" class="on">Hombre</button>
+      <button type="button" data-ns="f">Mujer</button>
+    </div>
+    <div class="nf-grid three">
+      <div><label class="lbl" for="ng-age">Edad</label><input id="ng-age" inputmode="numeric" autocomplete="off"></div>
+      <div><label class="lbl" for="ng-h">Altura (cm)</label><input id="ng-h" inputmode="numeric" autocomplete="off"></div>
+      <div><label class="lbl" for="ng-w">Peso (kg)</label><input id="ng-w" inputmode="decimal" autocomplete="off"></div>
+    </div>
+    <label class="lbl" for="ng-act">Actividad</label>
+    <select id="ng-act">
+      <option value="1.2">Sedentario (poco o ningún ejercicio)</option>
+      <option value="1.375">Ligera (1-3 días por semana)</option>
+      <option value="1.55">Moderada (3-5 días por semana)</option>
+      <option value="1.725">Alta (6-7 días por semana)</option>
+    </select>
+    <label class="lbl">Objetivo</label>
+    <div class="seg" id="ng-goal">
+      <button type="button" data-nn="cut">Definir</button>
+      <button type="button" data-nn="keep" class="on">Mantener</button>
+      <button type="button" data-nn="bulk">Ganar músculo</button>
+    </div>
+    <button id="ng-calc" class="ghost wide" type="button">Calcular y rellenar</button>
+    <p id="ng-res" class="hint"></p>
+    <p class="hint">Es una estimación (fórmula Mifflin-St Jeor y reparto de macros habitual). Ajusta según tu progreso real; no sustituye el consejo de un dietista-nutricionista.</p>
+  </div>
+  <footer class="savebar">
+    <div class="total"><small>Objetivo diario</small><strong id="ng-total">0 kcal</strong></div>
+    <button id="ng-save" class="primary" type="button">Guardar</button>
+  </footer>
+</section>
+
+<!-- ============ EDITOR DE SESIÓN DE GIMNASIO ============ -->
+<section id="view-gedit" class="view hidden">
+  <header class="top">
+    <button id="g-back" class="icon" type="button" aria-label="Volver"></button>
+    <h2 id="g-title">Nueva sesión</h2>
+    <span class="spacer"></span>
+  </header>
+  <div class="form">
+    <label class="lbl" for="g-name">Nombre de la sesión</label>
+    <input id="g-name" maxlength="40" placeholder="Ej.: Pecho y tríceps" autocomplete="off">
+    <label class="lbl" for="g-cat">Categoría</label>
+    <input id="g-cat" maxlength="24" placeholder="Ej.: Fuerza, Hipertrofia" autocomplete="off">
+    <div id="g-cat-chips" class="chips small"></div>
+    <div id="g-logbox" class="hidden">
+      <label class="lbl" for="gl-date">Fecha y hora</label>
+      <div class="gl-row"><input id="gl-date" type="date"><input id="gl-time" type="time"></div>
+      <label class="lbl" for="gl-min">Duración total (minutos, opcional)</label>
+      <input id="gl-min" inputmode="decimal" placeholder="Si lo dejas vacío se calcula sola" autocomplete="off">
+      <label class="lbl" for="gl-notes">Notas (opcional)</label>
+      <input id="gl-notes" maxlength="200" placeholder="Cómo te fue, sensaciones…" autocomplete="off">
+      <div id="gl-from" class="chips small"></div>
+    </div>
+    <h3 class="sec">Ejercicios</h3>
+    <div id="g-ex"></div>
+    <div class="addrow"><button id="g-add" class="ghost work" type="button">+ Ejercicio</button></div>
+    <p id="g-exhint" class="hint">El descanso de cada ejercicio se usa entre sus series y antes de pasar al siguiente ejercicio.</p>
+    <datalist id="g-names"></datalist>
+  </div>
+  <footer class="savebar">
+    <div class="total">
+      <small>Duración estimada</small>
+      <strong id="g-total">0 min</strong>
+      <small id="g-count"></small>
+    </div>
+    <button id="g-save" class="primary" type="button">Guardar</button>
+  </footer>
+</section>
+
+<!-- ============ SESIÓN DE GIMNASIO EN CURSO ============ -->
+<section id="view-grun" class="hidden" data-gm="set">
+  <div class="run-top">
+    <button id="gr-close" class="rbtn" type="button" aria-label="Salir de la sesión"></button>
+    <div id="gr-title" class="run-title"></div>
+    <button id="gr-mute" class="rbtn" type="button" aria-label="Silenciar sonido"></button>
+  </div>
+  <div class="run-prog"><i id="gr-prog"></i></div>
+  <div class="run-sub"><span id="gr-sub"></span></div>
+
+  <div id="gr-set" class="g-body">
+    <div id="gr-ex" class="g-ex"></div>
+    <div id="gr-setinfo" class="g-setinfo"></div>
+    <div id="gr-last" class="g-last"></div>
+    <div id="gr-sug" class="g-sug"></div>
+    <button id="gr-plates" class="g-plates" type="button" hidden aria-label="Calculadora de discos: toca para cambiar el peso de la barra"></button>
+    <div class="seg g-seg" id="gr-load">
+      <button type="button" data-gl="weight">Con peso</button>
+      <button type="button" data-gl="body">Sin peso</button>
+    </div>
+    <div class="g-inputs">
+      <div id="gr-wfield" class="g-field">
+        <span>Peso (kg)</span>
+        <div class="g-row">
+          <button class="step" type="button" data-gs="w" data-d="-2.5" aria-label="Menos peso">−</button>
+          <input id="gr-w" class="gnum" inputmode="decimal" autocomplete="off" aria-label="Peso en kilos">
+          <button class="step" type="button" data-gs="w" data-d="2.5" aria-label="Más peso">+</button>
+        </div>
+      </div>
+      <div class="g-field">
+        <span id="gr-rlabel">Repeticiones</span>
+        <div class="g-row">
+          <button class="step" type="button" data-gs="r" data-d="-1" aria-label="Menos repeticiones">−</button>
+          <input id="gr-r" class="gnum" inputmode="numeric" autocomplete="off" aria-label="Repeticiones hechas">
+          <button class="step" type="button" data-gs="r" data-d="1" aria-label="Más repeticiones">+</button>
+        </div>
+      </div>
+    </div>
+    <button id="gr-timer" class="g-timer hidden" type="button">Empezar cronómetro</button>
+    <div class="g-rir"><span>Reps que te quedaban (RIR) · opcional</span>
+      <div class="seg" id="gr-rir"><button type="button" data-rir="0">0</button><button type="button" data-rir="1">1</button><button type="button" data-rir="2">2</button><button type="button" data-rir="3">3</button><button type="button" data-rir="4">4+</button></div></div>
+    <button id="gr-done" class="g-done" type="button"></button>
+  </div>
+
+  <div id="gr-rest" class="g-body hidden">
+    <div class="phase-name">Descanso</div>
+    <div id="gr-clock" class="clock">0</div>
+    <div class="g-restbtns">
+      <button id="gr-m15" class="g-mini" type="button">−15 s</button>
+      <button id="gr-skiprest" class="g-mini main" type="button">Saltar descanso</button>
+      <button id="gr-p15" class="g-mini" type="button">+15 s</button>
+    </div>
+  </div>
+
+  <div id="gr-next" class="run-next"></div>
+  <div class="g-foot g-foot2">
+    <button id="gr-swap" class="g-link" type="button">Cambiar ejercicio</button>
+    <button id="gr-addex" class="g-link" type="button">+ Ejercicio</button>
+  </div>
+  <div class="g-foot">
+    <button id="gr-undo" class="g-link" type="button">Serie anterior</button>
+    <button id="gr-skipex" class="g-link" type="button">Saltar ejercicio</button>
+    <button id="gr-finish" class="g-link" type="button">Terminar</button>
+  </div>
+
+  <div id="gr-sum" class="done hidden">
+    <div class="done-badge"></div>
+    <h2>Sesión completada</h2>
+    <p id="gs-name"></p>
+    <div class="g-stats">
+      <div><b id="gs-sets">0</b><span>series</span></div>
+      <div><b id="gs-vol">0</b><span>kg movidos</span></div>
+      <div><b id="gs-dur">0</b><span>duración</span></div>
+    </div>
+    <ul id="gs-list" class="g-sumlist"></ul>
+    <label id="gs-updrow" class="check hidden"><input type="checkbox" id="gs-upd"><span id="gs-updtxt"></span></label>
+    <textarea id="gs-notes" class="g-notes" maxlength="500" rows="2" placeholder="Notas de la sesión (sensaciones, sueño, dolor…)"></textarea>
+    <div class="done-actions">
+      <button id="gs-save" class="primary" type="button">Guardar sesión</button>
+      <button id="gs-discard" class="ghost" type="button">Descartar</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ENTRENAMIENTO ============ -->
+<section id="view-run" class="hidden" data-ph="prep">
+  <div class="run-top">
+    <button id="r-close" class="rbtn" type="button" aria-label="Salir del entreno"></button>
+    <div id="r-title" class="run-title"></div>
+    <button id="r-mute" class="rbtn" type="button" aria-label="Silenciar sonido"></button>
+  </div>
+  <div class="run-prog"><i id="r-prog"></i></div>
+  <div class="run-sub"><span id="r-left"></span></div>
+  <div id="r-info" class="run-info"></div>
+
+  <div class="run-center">
+    <div id="r-phase" class="phase-name"></div>
+    <div id="r-clock" class="clock" aria-live="off">0</div>
+    <div class="paused">PAUSA</div>
+  </div>
+
+  <div id="r-next" class="run-next"></div>
+  <button id="r-did" class="primary r-did hidden" type="button">¡Hecho!</button>
+
+  <div class="run-controls">
+    <button id="r-prev" class="ctl" type="button" aria-label="Fase anterior"></button>
+    <button id="r-play" class="ctl main" type="button" aria-label="Pausar"></button>
+    <button id="r-skip" class="ctl" type="button" aria-label="Saltar fase"></button>
+  </div>
+  <button id="r-restart" class="restart" type="button"></button>
+
+  <div id="r-done" class="done hidden">
+    <div class="done-badge"></div>
+    <h2>¡Entreno completado!</h2>
+    <p id="r-done-name"></p>
+    <p id="r-done-extra" class="done-extra"></p>
+    <ul id="r-done-list" class="done-list"></ul>
+    <p class="done-time"><span>Duración total</span><b id="r-done-time">0:00</b></p>
+    <div class="done-actions">
+      <button id="d-again" class="primary" type="button">Repetir</button>
+      <button id="d-close" class="ghost" type="button">Cerrar</button>
+    </div>
+  </div>
+</section>
+
+<div id="sheet" class="sheet hidden"></div>
+<input id="f-restore" type="file" accept=".json,application/json" class="hidden">
+<input type="file" id="f-photo" accept="image/*" class="hidden" aria-hidden="true" tabindex="-1">
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<noscript><p style="padding:24px">Esta app necesita JavaScript para funcionar.</p></noscript>
+<script src="scene.js"></script>
+<script src="photos.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
