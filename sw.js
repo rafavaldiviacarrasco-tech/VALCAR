@@ -1,8 +1,8 @@
 /* Service worker · Intervalo — funcionamiento 100 % offline */
-const VERSION = 'v21';
+const VERSION = 'v22';
 const CACHE = 'intervalo-' + VERSION;
 const ASSETS = [
-  './', './index.html', './styles.css', './app.js', './scene.js', './photos.js', './manifest.webmanifest',
+  './', './index.html', './styles.css', './app.js', './cloud.js', './firebase-config.js', './scene.js', './photos.js', './manifest.webmanifest',
   './photos/winter-1.webp', './photos/winter-2.webp', './photos/winter-3.webp', './photos/winter-4.webp', './photos/winter-5.webp', './photos/winter-6.webp', './photos/spring-1.webp', './photos/spring-2.webp', './photos/spring-3.webp', './photos/spring-4.webp', './photos/spring-5.webp', './photos/summer-1.webp', './photos/summer-2.webp', './photos/summer-3.webp', './photos/summer-4.webp', './photos/summer-5.webp', './photos/summer-6.webp', './photos/autumn-1.webp', './photos/autumn-2.webp', './photos/autumn-3.webp', './photos/autumn-4.webp', './photos/autumn-5.webp', './photos/autumn-6.webp', './photos/autumn-7.webp',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
   './icons/apple-touch-icon.png', './icons/favicon.png',

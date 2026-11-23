@@ -111,3 +111,13 @@ En las fases por distancia hay un campo **«Ritmo objetivo (opc.)»**: segundos 
 
 ## v21
 - Historial: tarjeta «Mis récords» (mejor peso y 1RM estimado por ejercicio), buscador y filtros Todas/Gimnasio/Intervalos.
+
+## v22 · Cuenta de Google y sincronización (opcional)
+Para que cada persona entre con su Gmail y tenga su historial en cualquier móvil:
+1. En https://console.firebase.google.com crea un proyecto (plan gratuito Spark).
+2. Build → Authentication → Sign-in method → activa **Google**. En Settings → Authorized domains añade `TU-USUARIO.github.io`.
+3. Build → Firestore Database → crear base de datos. En Reglas pega:
+   `rules_version = '2'; service cloud.firestore { match /databases/{d}/documents { match /users/{uid} { allow read, write: if request.auth != null && request.auth.uid == uid; } } }`
+4. Project settings → Tus apps → Web (</>) → copia `firebaseConfig` y pégalo en `firebase-config.js` (`window.INTERVALO_FIREBASE = {...}`).
+5. Sube los archivos a GitHub. En la app: Historial → Exportar → Pasar mis datos → «Entrar con Google».
+Cada usuario solo puede leer y escribir su propio documento. La sincronización fusiona (no borra): una sesión eliminada en un móvil puede reaparecer desde otro.

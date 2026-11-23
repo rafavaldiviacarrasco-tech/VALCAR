@@ -52,7 +52,7 @@ const KEY = 'intervalo.workouts.v1';
 const SKEY = 'intervalo.settings.v1';
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} if (window.Cloud && window.Cloud.push && !window.__noPush) window.Cloud.push(); },
 };
 const settings = store.get(SKEY, { muted: false }) || { muted: false };
 if (!['auto', 'winter', 'spring', 'summer', 'autumn'].includes(settings.season)) settings.season = 'auto';
@@ -359,7 +359,7 @@ $('#sheet').addEventListener('click', e => {
   if (act === 'new-int') { closeSheet(); nav('edit', null); return; }
   if (act === 'new-gym') { closeSheet(); nav('gedit', null); return; }
   if (act === 'tr-open') { openTransfer(); return; }
-  if (act.startsWith('tr-')) { transferAct(act); return; }
+  if (act.startsWith('tr-') || act.startsWith('cl-')) { transferAct(act); return; }
   if (act.startsWith('gx-')) { gymSheetAct(act); return; }
   if (act.startsWith('wr-')) { wrapSheet(act); return; }
   if (act.startsWith('ci-')) { checkinSheet(act); return; }
@@ -1267,7 +1267,7 @@ $('#f-restore').addEventListener('change', async e => {
   const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
   restoreText(await f.text());
 });
-function restoreText(txt) {
+function restoreText(txt, quiet) {
   try {
     const j = JSON.parse(txt), d = j && j.data;
     if (!d || j.app !== 'Intervalo') throw 0;
@@ -1298,23 +1298,35 @@ function restoreText(txt) {
       Object.keys(h.taken).forEach(k => { if (!health.taken[k]) health.taken[k] = h.taken[k]; });
       saveHealth();
     }
-    log.sort((a, b) => b.ts - a.ts); saveAll(); saveLog(); closeSheet(); renderHome(); if (typeof paintStat === 'function') { try { paintStat(); } catch {} }
-    toast(`Restaurado: ${pl(nw, 'entreno', 'entrenos')}, ${pl(nl, 'sesión', 'sesiones')} y ${pl(nd, 'registro de nutrición', 'registros de nutrición')}` + (nh ? ` y ${pl(nh, 'registro de salud', 'registros de salud')}` : ''));
-  } catch { toast('Eso no es una copia válida de Intervalo'); }
+    log.sort((a, b) => b.ts - a.ts); window.__noPush = !!quiet; saveAll(); saveLog(); window.__noPush = false; if (!quiet) closeSheet(); renderHome(); if (typeof paintStat === 'function') { try { paintStat(); } catch {} }
+    if (!quiet) toast(`Restaurado: ${pl(nw, 'entreno', 'entrenos')}, ${pl(nl, 'sesión', 'sesiones')} y ${pl(nd, 'registro de nutrición', 'registros de nutrición')}` + (nh ? ` y ${pl(nh, 'registro de salud', 'registros de salud')}` : ''));
+  } catch { if (!quiet) toast('Eso no es una copia válida de Intervalo'); }
 }
+if (window.Cloud) window.Cloud.onchange = () => { if ($('#tr-text') && !$('#sheet').classList.contains('hidden')) { const v = $('#tr-text').value; openTransfer(); $('#tr-text').value = v; } };
+window.IntervaloApp = { dump: () => JSON.stringify({ app: 'Intervalo', schema: 1, exportedAt: new Date().toISOString(), data: { workouts, log, nutrition: nut, profile, health } }), merge: t => restoreText(t, true) };
 /* ---- pasar los datos a otro móvil o a otra dirección web (texto) ---- */
 function openTransfer() {
   const s = $('#sheet'); s.dataset.id = ''; s.classList.remove('hidden');
   s.innerHTML = `<div class="sheet-panel gsheet" role="dialog" aria-label="Pasar mis datos"><h4>Pasar mis datos</h4>
     <p class="hint first">Los datos viven en cada dirección web y en cada móvil por separado (p. ej. el artefacto de Claude y la app instalada son «sitios» distintos). Para llevarlos de uno a otro: en el origen pulsa «Copiar», y en el destino pega el texto y pulsa «Restaurar».</p>
+    ${cloudRow()}
     <button class="sheet-btn" type="button" data-s="tr-copy">${I.copy}<span class="sb-t">Copiar mis datos como texto<small>Se guarda en el portapapeles (o se muestra para copiarlo a mano)</small></span></button>
     <textarea id="tr-text" rows="4" placeholder="Aquí aparece el texto para copiar, o pega aquí el que has copiado en el otro sitio" aria-label="Texto de la copia"></textarea>
     <button class="sheet-btn" type="button" data-s="tr-paste">${I.plus}Restaurar desde el texto pegado</button>
     <button class="sheet-btn" type="button" data-s="x-restore">${I.plus}Restaurar desde un archivo .json</button>
     <button class="sheet-btn" type="button" data-s="cancel">${I.close}Cerrar</button></div>`;
 }
+function cloudRow() {
+  const C = window.Cloud; if (!C || !C.enabled) return '';
+  const msg = { off: 'Entra con tu cuenta de Google y tu historial será el mismo en cualquier móvil.', sync: 'Sincronizando…', ok: 'Sincronizado' + (C.last ? ' a las ' + fmtTime(C.last) : ''), err: 'No se pudo sincronizar (¿sin cobertura?). Se reintentará.', denied: 'La nube rechazó el acceso. Revisa las reglas de Firestore.' }[C.state] || '';
+  return C.user ? `<div class="hint first"><b>${esc(C.user.email || C.user.name || 'Cuenta')}</b><br>${msg}</div><button class="sheet-btn" type="button" data-s="cl-sync">${I.save}<span class="sb-t">Sincronizar ahora</span></button><button class="sheet-btn" type="button" data-s="cl-out">${I.close}Cerrar sesión</button>`
+    : `<div class="hint first">${msg}</div><button class="sheet-btn" type="button" data-s="cl-in">${I.plus}<span class="sb-t">Entrar con Google<small>Sincroniza tu historial entre dispositivos</small></span></button>`;
+}
 async function transferAct(act) {
   const ta = $('#tr-text');
+  if (act === 'cl-in') { window.Cloud.signIn(); return; }
+  if (act === 'cl-out') { await window.Cloud.signOut(); openTransfer(); return; }
+  if (act === 'cl-sync') { window.Cloud.sync(); return; }
   if (act === 'tr-copy') {
     const txt = JSON.stringify({ app: 'Intervalo', schema: 1, exportedAt: new Date().toISOString(), data: { workouts, log, nutrition: nut, profile, health } });
     ta.value = txt; ta.focus(); ta.select();
