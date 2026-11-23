@@ -1,5 +1,5 @@
 /* Service worker · Intervalo — funcionamiento 100 % offline */
-const VERSION = 'v24';
+const VERSION = 'v25';
 const CACHE = 'intervalo-' + VERSION;
 const ASSETS = [
   './', './index.html', './styles.css', './app.js', './cloud.js', './firebase-config.js', './scene.js', './photos.js', './manifest.webmanifest',

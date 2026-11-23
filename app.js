@@ -1276,7 +1276,7 @@ function restoreText(txt, quiet) {
   try {
     const j = JSON.parse(txt), d = j && j.data;
     if (!d || j.app !== 'Intervalo') throw 0;
-    let nw = 0, nl = 0;
+    let nw = 0, nl = 0; const hadProfile = !!profile;
     (Array.isArray(d.workouts) ? d.workouts : []).forEach(w => { if (sane(w) && !find(String(w.id))) { workouts.push(normalize(w)); nw++; } });
     (Array.isArray(d.log) ? d.log : []).map(cleanLog).filter(Boolean).forEach(x => { if (!log.some(l => l.id === x.id)) { log.push(x); nl++; } });
     let nd = 0;
@@ -1303,7 +1303,8 @@ function restoreText(txt, quiet) {
       Object.keys(h.taken).forEach(k => { if (!health.taken[k]) health.taken[k] = h.taken[k]; });
       saveHealth();
     }
-    log.sort((a, b) => b.ts - a.ts); window.__noPush = !!quiet; saveAll(); saveLog(); window.__noPush = false; if (!quiet) closeSheet(); renderHome(); if (typeof paintStat === 'function') { try { paintStat(); } catch {} }
+    const gotProfile = !hadProfile && !!profile;
+    log.sort((a, b) => b.ts - a.ts); window.__noPush = !!quiet; saveAll(); saveLog(); window.__noPush = false; if (!quiet) closeSheet(); renderHome(); if (gotProfile && !$('#view-onb').classList.contains('hidden')) { store.set(OSKIP, true); closeSheet(); goBack(); toast('Perfil recuperado'); } if (typeof paintStat === 'function') { try { paintStat(); } catch {} }
     if (!quiet) toast(`Restaurado: ${pl(nw, 'entreno', 'entrenos')}, ${pl(nl, 'sesión', 'sesiones')} y ${pl(nd, 'registro de nutrición', 'registros de nutrición')}` + (nh ? ` y ${pl(nh, 'registro de salud', 'registros de salud')}` : ''));
   } catch { if (!quiet) toast('Eso no es una copia válida de Intervalo'); }
 }
@@ -2445,7 +2446,7 @@ function renderOnb(id) {
 const optList = (map, cur, ph) => `<option value="">${ph}</option>` + Object.keys(map).map(k => `<option value="${esc(k)}"${String(cur) === k ? ' selected' : ''}>${esc(map[k])}</option>`).join('');
 function obStep(s, d) {
   const v = k => d[k] == null ? '' : esc(d[k]), on = (k, x) => d[k] === x ? ' class="on"' : '';
-  if (s === 0) return `<p class="hint first">Crea tu perfil con tus datos. Después te haré las preguntas que haría un entrenador personal para planificar contigo.</p>
+  if (s === 0) return `${profile ? '' : `<div class="resume"><b>¿Ya usabas Intervalo en otro móvil?</b><small>Recupera tu perfil y tus datos sin volver a rellenar nada.</small><div class="resume-actions"><button class="primary" type="button" data-ob="recover">${window.Cloud && window.Cloud.enabled ? 'Entrar con Google o pegar copia' : 'Pegar mi copia de datos'}</button></div></div>`}<p class="hint first">Crea tu perfil con tus datos. Después te haré las preguntas que haría un entrenador personal para planificar contigo.</p>
     <div class="nf-grid"><div><label class="lbl" for="ob-first">Nombre</label><input id="ob-first" data-o="first" autocomplete="given-name" maxlength="40" value="${v('first')}"></div>
     <div><label class="lbl" for="ob-last">Apellidos</label><input id="ob-last" data-o="last" autocomplete="family-name" maxlength="60" value="${v('last')}"></div></div>
     <label class="lbl" for="ob-email">Correo electrónico</label><input id="ob-email" data-o="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="80" value="${v('email')}">
@@ -2560,7 +2561,7 @@ $('#ob-back').addEventListener('click', () => {
   collectOb();
   if (ob.step > 0) { ob.step--; paintOnb(); } else if (ob.edit) goBack(); else obExit(false);
 });
-$('#view-onb').addEventListener('click', e => {
+$('#view-onb').addEventListener('click', e => { if (e.target.closest('[data-ob=recover]')) { openTransfer(); return; }
   const b = e.target.closest('.seg button'); if (!b) return;
   const seg = b.parentElement, f = seg.dataset.f; if (!f) return;
   seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));

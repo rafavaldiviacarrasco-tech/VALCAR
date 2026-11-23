@@ -127,3 +127,6 @@ Cada usuario solo puede leer y escribir su propio documento. La sincronización 
 
 ## v24
 - Menú ⋯ de cada entreno: «Poner el primero» para subirlo al principio de la lista.
+
+## v25
+- Al crear el perfil aparece «¿Ya usabas Intervalo en otro móvil?»: pegando la copia (o entrando con Google si la nube está activa) se recupera el perfil y se salta el cuestionario.
