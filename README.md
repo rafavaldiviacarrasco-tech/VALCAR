@@ -121,3 +121,6 @@ Para que cada persona entre con su Gmail y tenga su historial en cualquier móvi
 4. Project settings → Tus apps → Web (</>) → copia `firebaseConfig` y pégalo en `firebase-config.js` (`window.INTERVALO_FIREBASE = {...}`).
 5. Sube los archivos a GitHub. En la app: Historial → Exportar → Pasar mis datos → «Entrar con Google».
 Cada usuario solo puede leer y escribir su propio documento. La sincronización fusiona (no borra): una sesión eliminada en un móvil puede reaparecer desde otro.
+
+## v23
+- Al eliminar una sesión del historial aparece «Deshacer» durante 6 segundos.

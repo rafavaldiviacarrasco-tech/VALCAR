@@ -259,10 +259,13 @@ window.addEventListener('popstate', e => { const s = e.state || { view: 'home' }
 
 let gTemp = null;   // sesión de gimnasio temporal (repetida desde el historial)
 let toastTO;
-function toast(msg) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTO); toastTO = setTimeout(() => t.classList.remove('show'), 2300);
+let toastUndo = null;
+function toast(msg, undo) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show'); toastUndo = undo || null;
+  if (undo) { const b = document.createElement('button'); b.type = 'button'; b.className = 'tundo'; b.textContent = 'Deshacer'; t.appendChild(b); }
+  clearTimeout(toastTO); toastTO = setTimeout(() => { t.classList.remove('show'); toastUndo = null; }, undo ? 6000 : 2300);
 }
+$('#toast').addEventListener('click', e => { if (e.target.closest('.tundo') && toastUndo) { const f = toastUndo; toastUndo = null; $('#toast').classList.remove('show'); f(); } });
 
 /* =====================================================================
    INICIO
@@ -1140,7 +1143,7 @@ $('#hist').addEventListener('click', e => {
   else if (b.dataset.hx === 'repeat') { const s = log.find(x => x.id === id); if (s) beginTmp(tplFromLog(s)); }
   else if (b.dataset.hx === 'astpl') { const s = log.find(x => x.id === id); if (s) { const w = tplFromLog(s); w.id = uid(); w.name = w.name.slice(0, 40); workouts.unshift(normalize(w)); saveAll(); toast('Guardado en Entrenos'); } }
   else if (b.dataset.hx === 'toggle') { openLog = openLog === id ? null : id; $('#hlist').innerHTML = histList(); }
-  else if (b.dataset.hx === 'del') arm(b, () => { log = log.filter(s => s.id !== id); saveLog(); openLog = null; renderHist(); toast('Sesión eliminada'); }, '¿Seguro? Toca de nuevo');
+  else if (b.dataset.hx === 'del') arm(b, () => { const gone = log.find(s => s.id === id); log = log.filter(s => s.id !== id); saveLog(); openLog = null; renderHist(); toast('Sesión eliminada', () => { log.push(gone); log.sort((x, y) => y.ts - x.ts); saveLog(); renderHist(); toast('Sesión recuperada'); }); }, '¿Seguro? Toca de nuevo');
 });
 
 /* =====================================================================
