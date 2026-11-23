@@ -1079,6 +1079,25 @@ function backupBanner() {
 }
 let openLog = null;
 function weekStart() { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getTime(); }
+let hf = { q: '', t: 'all' };
+function recordsCard() {
+  const best = {};
+  log.filter(s => s.kind === 'gym').forEach(s => s.exercises.forEach(e => {
+    const m = e1rm(e); if (!(m > 0)) return;
+    const top = e.sets.reduce((b, x) => x.weight > b.weight ? x : b, { weight: 0, reps: 0 });
+    const r = best[e.name] || (best[e.name] = { n: e.name, m: 0, w: 0, wr: 0, ts: 0, n_: 0 });
+    r.n_++; if (m > r.m) { r.m = m; r.ts = s.ts; } if (top.weight > r.w) { r.w = top.weight; r.wr = top.reps; }
+  }));
+  const rows = Object.values(best).sort((x, y) => y.m - x.m).slice(0, 8); if (!rows.length) return '';
+  return `<details class="hcard recs"><summary><h3>Mis récords</h3><span class="hint" style="margin:0">${rows.length} ejercicios</span></summary>
+    ${rows.map(r => `<div class="rec"><b>${esc(r.n)}</b><span>${fmtKg(r.w)} kg × ${r.wr}<small> · 1RM est. ${fmtKg(r.m)} kg</small></span></div>`).join('')}</details>`;
+}
+function histList() {
+  const q = normTxt(hf.q.trim());
+  const L = log.filter(s => (hf.t === 'all' || (hf.t === 'gym') === (s.kind === 'gym')) && (!q || normTxt(s.name).includes(q) || s.exercises.some(e => normTxt(e.name).includes(q)) || normTxt(s.notes || '').includes(q)));
+  if (!L.length) return '<div class="empty"><p>Ninguna sesión coincide con el filtro.</p></div>';
+  return L.map(histItem).join('');
+}
 function renderHist() {
   const h = $('#hist');
   const week = log.filter(s => s.ts >= weekStart());
@@ -1087,12 +1106,15 @@ function renderHist() {
       <div class="stat"><b>${week.length}</b><span>sesiones</span></div>
       <div class="stat"><b>${wsets}</b><span>series</span></div>
       <div class="stat"><b>${Math.round(wvol).toLocaleString('es-ES')}</b><span>kg semana</span></div></div></div>
-    ${backupBanner()}${goalHTML()}${weekCard()}${progCard()}${heatCard()}${wrapCard()}
+    ${backupBanner()}${goalHTML()}${weekCard()}${progCard()}${recordsCard()}${heatCard()}${wrapCard()}
     <div class="hist-sub"><h3>Esta semana · ${log.length} en total</h3><span class="pills"><button class="pill" type="button" data-hx="addlog">+ Sesión hecha</button><button class="pill" type="button" data-hx="export">${I.save.replace('<svg','<svg style="display:inline;vertical-align:-3px;margin-right:6px"')}Exportar</button></span></div>`;
   if (!log.length) {
     h.innerHTML = head + `<div class="empty"><p>Aún no hay sesiones registradas.<br>Termina un entreno y aparecerá aquí con sus pesos, o añade una que ya hiciste.</p><button class="primary" type="button" data-hx="addlog">Añadir sesión hecha</button></div>`; return;
   }
-  h.innerHTML = head + log.map(s => {
+  h.innerHTML = head + `<div class="hfilter"><input id="hq" type="search" placeholder="Buscar sesión o ejercicio" value="${esc(hf.q)}" aria-label="Buscar en el historial">
+    <div class="seg"><button type="button" data-hf="all" class="${hf.t === 'all' ? 'on' : ''}">Todas</button><button type="button" data-hf="gym" class="${hf.t === 'gym' ? 'on' : ''}">Gimnasio</button><button type="button" data-hf="int" class="${hf.t === 'int' ? 'on' : ''}">Intervalos</button></div></div><div id="hlist">${histList()}</div>`;
+}
+function histItem(s) {
     const open = openLog === s.id, gym = s.kind === 'gym';
     const meta = gym ? `${Math.max(1, Math.round(s.durationSec / 60))} min · ${pl(setsOf(s), 'serie', 'series')} · ${Math.round(volOf(s)).toLocaleString('es-ES')} kg${kcalLog(s) ? ' · ' + kcalTxt(kcalLog(s)) : ''}`
       : `Intervalos · ${fmt(s.durationSec)}${s.distM ? ' · ' + fmtDist(s.distM) : ''}${s.kcal ? ' · ' + kcalTxt(s.kcal) : ''}`;
@@ -1105,10 +1127,11 @@ function renderHist() {
       <button class="log-del" type="button" data-hx="del" data-id="${esc(s.id)}">Eliminar sesión</button></div></div>`;
     return `<article class="log" data-id="${esc(s.id)}"><div class="log-top" data-hx="toggle"><div><h4>${esc(s.name)}</h4><p class="log-meta">${esc(meta)}</p></div>
       <span class="log-date">${esc(fmtDay(s.ts))}<br>${esc(fmtTime(s.ts))}</span></div>${body}</article>`;
-  }).join('');
 }
+$('#hist').addEventListener('input', e => { if (e.target.id === 'hq') { hf.q = e.target.value; $('#hlist').innerHTML = histList(); } });
 $('#hist').addEventListener('change', e => { if (e.target.id === 'px') { progEx = e.target.value; renderHist(); } });
 $('#hist').addEventListener('click', e => {
+  const f = e.target.closest('[data-hf]'); if (f) { hf.t = f.dataset.hf; renderHist(); return; }
   const b = e.target.closest('[data-hx]'); if (!b) return;
   const id = (b.closest('.log') || {}).dataset?.id;
   if (b.dataset.hx === 'export') openExport();
@@ -1116,7 +1139,7 @@ $('#hist').addEventListener('click', e => {
   else if (b.dataset.hx === 'addlog') nav('gedit', '__log');
   else if (b.dataset.hx === 'repeat') { const s = log.find(x => x.id === id); if (s) beginTmp(tplFromLog(s)); }
   else if (b.dataset.hx === 'astpl') { const s = log.find(x => x.id === id); if (s) { const w = tplFromLog(s); w.id = uid(); w.name = w.name.slice(0, 40); workouts.unshift(normalize(w)); saveAll(); toast('Guardado en Entrenos'); } }
-  else if (b.dataset.hx === 'toggle') { openLog = openLog === id ? null : id; renderHist(); }
+  else if (b.dataset.hx === 'toggle') { openLog = openLog === id ? null : id; $('#hlist').innerHTML = histList(); }
   else if (b.dataset.hx === 'del') arm(b, () => { log = log.filter(s => s.id !== id); saveLog(); openLog = null; renderHist(); toast('Sesión eliminada'); }, '¿Seguro? Toca de nuevo');
 });
 

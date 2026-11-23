@@ -1,5 +1,5 @@
 /* Service worker · Intervalo — funcionamiento 100 % offline */
-const VERSION = 'v20';
+const VERSION = 'v21';
 const CACHE = 'intervalo-' + VERSION;
 const ASSETS = [
   './', './index.html', './styles.css', './app.js', './scene.js', './photos.js', './manifest.webmanifest',

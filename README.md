@@ -108,3 +108,6 @@ En las fases por distancia hay un campo **«Ritmo objetivo (opc.)»**: segundos 
 
 - Los datos se guardan en el navegador **por dirección web**: el artefacto de claude.ai, la web de GitHub Pages y la app instalada en iPhone (que es independiente de Safari) son lugares distintos. Para pasarlos: Historial → Exportar → **«Pasar mis datos a otro móvil o web»** (copiar el texto en un sitio y pegarlo en el otro). Si la app está vacía, en Entrenos aparece **«Restaurar mis datos»**.
 - Franja inferior en Entrenos: **«Lista para usar sin conexión»**, botón **Instalar** (Android) o **Cómo instalar** (iPhone) y aviso de **versión nueva**.
+
+## v21
+- Historial: tarjeta «Mis récords» (mejor peso y 1RM estimado por ejercicio), buscador y filtros Todas/Gimnasio/Intervalos.
