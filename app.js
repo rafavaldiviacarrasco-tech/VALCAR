@@ -347,6 +347,7 @@ function openSheet(id) {
     <h4>${esc(w.name)}</h4>
     <button class="sheet-btn" type="button" data-s="edit">${I.edit}Editar</button>
     ${stationsOf(w).length > 1 ? `<button class="sheet-btn" type="button" data-s="stn">${I.play}<span class="sb-t">Empezar en otra estación<small>Para grupos: cada uno arranca en un puesto distinto</small></span></button>` : ''}
+    ${workouts.indexOf(w) > 0 ? `<button class="sheet-btn" type="button" data-s="top">${I.play}<span class="sb-t">Poner el primero<small>Súbelo al principio de la lista</small></span></button>` : ''}
     <button class="sheet-btn" type="button" data-s="dup">${I.copy}Duplicar</button>
     <button class="sheet-btn" type="button" data-s="share">${I.share}Compartir enlace</button>
     <button class="sheet-btn danger" type="button" data-s="del">${I.trash}Eliminar</button>
@@ -390,6 +391,7 @@ $('#sheet').addEventListener('click', e => {
   }
   const w = find(id); if (!w) { closeSheet(); return; }
   if (act === 'edit') { closeSheet(); nav(w.kind === 'gym' ? 'gedit' : 'edit', id); }
+  else if (act === 'top') { workouts.splice(workouts.indexOf(w), 1); workouts.unshift(w); saveAll(); closeSheet(); renderHome(); toast('Entreno al principio'); }
   else if (act === 'dup') {
     const c = clone(w); c.id = uid(); c.name = (w.name + ' (copia)').slice(0, 40);
     workouts.splice(workouts.indexOf(w) + 1, 0, c); saveAll(); closeSheet(); renderHome(); toast('Entreno duplicado');

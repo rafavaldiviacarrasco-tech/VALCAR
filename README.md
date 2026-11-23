@@ -124,3 +124,6 @@ Cada usuario solo puede leer y escribir su propio documento. La sincronización 
 
 ## v23
 - Al eliminar una sesión del historial aparece «Deshacer» durante 6 segundos.
+
+## v24
+- Menú ⋯ de cada entreno: «Poner el primero» para subirlo al principio de la lista.
