@@ -358,6 +358,8 @@ $('#sheet').addEventListener('click', e => {
   if (act.startsWith('imp-')) { handleImport(act); return; }
   if (act === 'new-int') { closeSheet(); nav('edit', null); return; }
   if (act === 'new-gym') { closeSheet(); nav('gedit', null); return; }
+  if (act === 'tr-open') { openTransfer(); return; }
+  if (act.startsWith('tr-')) { transferAct(act); return; }
   if (act.startsWith('gx-')) { gymSheetAct(act); return; }
   if (act.startsWith('wr-')) { wrapSheet(act); return; }
   if (act.startsWith('ci-')) { checkinSheet(act); return; }
@@ -1132,6 +1134,7 @@ function openExport() {
     <button class="sheet-btn" type="button" data-s="x-ncsv">${I.save}<span class="sb-t">Comidas en tabla (.csv)<small>Una fila por alimento, para Excel</small></span></button>
     <button class="sheet-btn" type="button" data-s="x-hcsv">${I.save}<span class="sb-t">Salud en tabla (.csv)<small>Sueño y medidas, para Excel</small></span></button>
     <button class="sheet-btn" type="button" data-s="x-md">${I.save}<span class="sb-t">Resumen legible (.md)<small>Entrenos, nutrición y salud en texto (sin tu correo)</small></span></button>
+    <button class="sheet-btn" type="button" data-s="tr-open">${I.copy}<span class="sb-t">Pasar mis datos a otro móvil o web<small>Copiar y pegar como texto</small></span></button>
     <button class="sheet-btn" type="button" data-s="x-restore">${I.plus}Restaurar copia (.json)</button></div>`;
 }
 const csvCell = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
@@ -1239,8 +1242,11 @@ function exportAction(act) {
 }
 $('#f-restore').addEventListener('change', async e => {
   const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  restoreText(await f.text());
+});
+function restoreText(txt) {
   try {
-    const j = JSON.parse(await f.text()), d = j && j.data;
+    const j = JSON.parse(txt), d = j && j.data;
     if (!d || j.app !== 'Intervalo') throw 0;
     let nw = 0, nl = 0;
     (Array.isArray(d.workouts) ? d.workouts : []).forEach(w => { if (sane(w) && !find(String(w.id))) { workouts.push(normalize(w)); nw++; } });
@@ -1269,10 +1275,34 @@ $('#f-restore').addEventListener('change', async e => {
       Object.keys(h.taken).forEach(k => { if (!health.taken[k]) health.taken[k] = h.taken[k]; });
       saveHealth();
     }
-    log.sort((a, b) => b.ts - a.ts); saveAll(); saveLog(); closeSheet(); renderHome();
+    log.sort((a, b) => b.ts - a.ts); saveAll(); saveLog(); closeSheet(); renderHome(); if (typeof paintStat === 'function') { try { paintStat(); } catch {} }
     toast(`Restaurado: ${pl(nw, 'entreno', 'entrenos')}, ${pl(nl, 'sesión', 'sesiones')} y ${pl(nd, 'registro de nutrición', 'registros de nutrición')}` + (nh ? ` y ${pl(nh, 'registro de salud', 'registros de salud')}` : ''));
-  } catch { toast('Ese archivo no es una copia válida de Intervalo'); }
-});
+  } catch { toast('Eso no es una copia válida de Intervalo'); }
+}
+/* ---- pasar los datos a otro móvil o a otra dirección web (texto) ---- */
+function openTransfer() {
+  const s = $('#sheet'); s.dataset.id = ''; s.classList.remove('hidden');
+  s.innerHTML = `<div class="sheet-panel gsheet" role="dialog" aria-label="Pasar mis datos"><h4>Pasar mis datos</h4>
+    <p class="hint first">Los datos viven en cada dirección web y en cada móvil por separado (p. ej. el artefacto de Claude y la app instalada son «sitios» distintos). Para llevarlos de uno a otro: en el origen pulsa «Copiar», y en el destino pega el texto y pulsa «Restaurar».</p>
+    <button class="sheet-btn" type="button" data-s="tr-copy">${I.copy}<span class="sb-t">Copiar mis datos como texto<small>Se guarda en el portapapeles (o se muestra para copiarlo a mano)</small></span></button>
+    <textarea id="tr-text" rows="4" placeholder="Aquí aparece el texto para copiar, o pega aquí el que has copiado en el otro sitio" aria-label="Texto de la copia"></textarea>
+    <button class="sheet-btn" type="button" data-s="tr-paste">${I.plus}Restaurar desde el texto pegado</button>
+    <button class="sheet-btn" type="button" data-s="x-restore">${I.plus}Restaurar desde un archivo .json</button>
+    <button class="sheet-btn" type="button" data-s="cancel">${I.close}Cerrar</button></div>`;
+}
+async function transferAct(act) {
+  const ta = $('#tr-text');
+  if (act === 'tr-copy') {
+    const txt = JSON.stringify({ app: 'Intervalo', schema: 1, exportedAt: new Date().toISOString(), data: { workouts, log, nutrition: nut, profile, health } });
+    ta.value = txt; ta.focus(); ta.select();
+    try { await navigator.clipboard.writeText(txt); toast('Copiado. Pégalo en el otro sitio'); } catch { toast('Selecciona el texto y cópialo a mano (mantén pulsado → Copiar)'); }
+    store.set(BKEY, Date.now());
+  } else if (act === 'tr-paste') {
+    let t = ta.value.trim(); if (!t) { try { t = (await navigator.clipboard.readText()).trim(); } catch {} }
+    if (!t) { toast('Pega primero el texto copiado'); return; }
+    restoreText(t);
+  }
+}
 
 /* =====================================================================
    EDITOR DE SESIÓN DE GIMNASIO
@@ -2753,7 +2783,40 @@ $('#btn-install').addEventListener('click', async () => {
 });
 window.addEventListener('appinstalled', () => $('#btn-install').classList.add('hidden'));
 
+/* ---- estado sin conexión / instalación / actualización ---- */
+const standalone = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const stat = { sw: 'none', update: false };
+function paintStat() {
+  const el = $('#appstat'); if (!el) return;
+  if (inFrame() || !('serviceWorker' in navigator)) { el.classList.add('hidden'); return; }
+  const off = stat.sw === 'ready' ? '<span class="ok">✓ Lista para usar sin conexión</span>' : '<span>Preparando el modo sin conexión… ábrela una vez con cobertura</span>';
+  const inst = standalone() ? '' : deferredPrompt ? '<button class="pill" type="button" data-as="install">Instalar</button>' : isIOS ? '<button class="pill" type="button" data-as="ios">Cómo instalar</button>' : '';
+  const rest = !log.length ? '<button class="pill" type="button" data-as="restore">Restaurar mis datos</button>' : '';
+  el.innerHTML = (stat.update ? '<button class="upd" type="button" data-as="reload">Hay una versión nueva · Toca para actualizar</button>' : '') + `<div class="row">${off}${inst}${rest}</div>`;
+  el.classList.remove('hidden');
+}
+$('#appstat').addEventListener('click', async e => {
+  const b = e.target.closest('[data-as]'); if (!b) return;
+  if (b.dataset.as === 'reload') location.reload();
+  else if (b.dataset.as === 'restore') openTransfer();
+  else if (b.dataset.as === 'install' && deferredPrompt) { deferredPrompt.prompt(); try { await deferredPrompt.userChoice; } catch {} deferredPrompt = null; paintStat(); }
+  else if (b.dataset.as === 'ios') {
+    const s = $('#sheet'); s.dataset.id = ''; s.classList.remove('hidden');
+    s.innerHTML = `<div class="sheet-panel" role="dialog" aria-label="Instalar en iPhone"><h4>Instalar en iPhone o iPad</h4>
+      <p class="hint first">1. Abre esta página en <b>Safari</b>.<br>2. Toca el botón <b>Compartir</b> (el cuadrado con la flecha hacia arriba).<br>3. Elige <b>«Añadir a pantalla de inicio»</b>.<br>4. Abre la app desde el icono nuevo. Funcionará sin cobertura.</p>
+      <button class="sheet-btn" type="button" data-s="cancel">${I.close}Entendido</button></div>`;
+  }
+});
+window.addEventListener('beforeinstallprompt', paintStat);
+window.addEventListener('appinstalled', paintStat);
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { try { navigator.serviceWorker.register('./sw.js').catch(() => {}); } catch {} });
+  window.addEventListener('load', () => { try {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      const had = !!navigator.serviceWorker.controller;
+      navigator.serviceWorker.ready.then(() => { stat.sw = 'ready'; paintStat(); });
+      reg.addEventListener('updatefound', () => { const w = reg.installing; if (w) w.addEventListener('statechange', () => { if (w.state === 'installed' && had) { stat.update = true; paintStat(); } }); });
+    }).catch(() => {}); } catch {} });
+  paintStat();
 }
 })();

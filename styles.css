@@ -572,3 +572,10 @@ body[data-view="run"] #scene,body[data-view="grun"] #scene{display:none}
 .done-extra{margin:4px 0;font-weight:700;text-align:center}
 
 .pace{width:100%;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.8rem;color:var(--muted);font-weight:600}.pace>span{width:100%}.pace label{display:flex;align-items:center;gap:6px;flex-direction:row}.pace input{width:72px}
+
+.appstat{padding:4px 16px calc(96px + var(--safe-b));font-size:.82rem;color:var(--muted)}
+.appstat .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.appstat .ok{color:#4ade80;font-weight:600}
+.appstat .pill{height:34px;padding:0 14px}
+.appstat .upd{width:100%;margin-bottom:8px;height:46px;border-radius:14px;border:0;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:700}
+
+#tr-text{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;color:var(--text);font:inherit;font-size:.85rem;margin:8px 0;resize:vertical}
