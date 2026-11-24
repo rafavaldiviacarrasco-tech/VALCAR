@@ -130,3 +130,6 @@ Cada usuario solo puede leer y escribir su propio documento. La sincronización 
 
 ## v25
 - Al crear el perfil aparece «¿Ya usabas Intervalo en otro móvil?»: pegando la copia (o entrando con Google si la nube está activa) se recupera el perfil y se salta el cuestionario.
+
+## v26
+- El entrenador (IA) puede crear entrenos de gimnasio o intervalos (con distancias, reps y ritmos). Aparecen como tarjeta con «Guardar en Entrenos». Chip nuevo: «Crea un entreno para hoy».

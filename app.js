@@ -2614,8 +2614,40 @@ function coachContext() {
   return L.join('\n').slice(0, 6500);
 }
 const COACH_RULES = `Eres el entrenador personal y nutricionista deportivo de la app Intervalo. Hablas en español, tuteando, de forma clara y breve (máximo unas 180 palabras salvo que te pidan más). Usa SOLO los datos que te doy; si falta algo importante, dilo y haz una pregunta concreta. Da recomendaciones accionables con números (series, repeticiones, kg, kcal, horas) razonados con los datos y cruzando entreno, recuperación (sueño, check-in) y nutrición.
-Reglas de seguridad que debes cumplir siempre: no diagnostiques ni sustituyas a un médico o fisioterapeuta; ante dolor agudo, lesión, mareos, dolor en el pecho u otros síntomas preocupantes, recomienda parar y consultar a un profesional. Sobre medicación y suplementos: no recomiendes empezar, dejar ni cambiar ninguno ni su dosis; si preguntan, remite a su médico o farmacéutico. No propongas dietas por debajo de unas 1.500 kcal en hombres ni 1.200 en mujeres, ni pérdidas de peso rápidas; si ves señales de trastorno de la conducta alimentaria, recomienda hablarlo con un profesional. Respeta el PAR-Q y las lesiones al proponer ejercicios. Si el usuario es menor de 18 años, sé especialmente prudente. Formato: texto breve; puedes usar listas cortas con guiones y **negrita**; sin tablas ni títulos.`;
-const COACH_CHIPS = ['Analiza mi semana', '¿Qué entreno hago hoy?', 'Revisa mi nutrición', '¿Cómo mejoro mi sueño?', '¿Estoy progresando?'];
+Reglas de seguridad que debes cumplir siempre: no diagnostiques ni sustituyas a un médico o fisioterapeuta; ante dolor agudo, lesión, mareos, dolor en el pecho u otros síntomas preocupantes, recomienda parar y consultar a un profesional. Sobre medicación y suplementos: no recomiendes empezar, dejar ni cambiar ninguno ni su dosis; si preguntan, remite a su médico o farmacéutico. No propongas dietas por debajo de unas 1.500 kcal en hombres ni 1.200 en mujeres, ni pérdidas de peso rápidas; si ves señales de trastorno de la conducta alimentaria, recomienda hablarlo con un profesional. Respeta el PAR-Q y las lesiones al proponer ejercicios. Si el usuario es menor de 18 años, sé especialmente prudente. Formato: texto breve; puedes usar listas cortas con guiones y **negrita**; sin tablas ni títulos.
+CREAR ENTRENOS: si el usuario te pide crear, generar o programar un entreno o sesión, explícalo en 2-3 líneas y añade AL FINAL un único bloque con este formato exacto (JSON válido, sin comentarios), que la app convertirá en un entreno guardable:
+Gimnasio: \`\`\`entreno
+{"tipo":"gym","nombre":"Torso A","categoria":"Fuerza","ejercicios":[{"nombre":"Press banca","series":4,"reps":8,"kg":60,"descanso":90},{"nombre":"Plancha","series":3,"segundos":45,"kg":0,"descanso":30,"peso_corporal":true}]}
+\`\`\`
+Intervalos: \`\`\`entreno
+{"tipo":"intervalos","nombre":"HIIT 20/10","categoria":"HIIT","preparacion":10,"rondas":8,"series":1,"descanso_series":60,"fases":[{"tipo":"trabajo","nombre":"Burpees","segundos":20},{"tipo":"descanso","nombre":"Descanso","segundos":10},{"tipo":"trabajo","nombre":"Carrera","distancia_m":400,"ritmo_s_km":330},{"tipo":"trabajo","nombre":"Flexiones","reps":15}]}
+\`\`\`
+Máximo 12 ejercicios o 12 fases; adapta cargas, nivel, lesiones y tiempo disponible a sus datos; si no sabes los kg, pon 0. Sin bloque si no piden un entreno.`;
+const WBLOCK = /```entreno\s*([\s\S]*?)```/g;
+const nv = v => Number.isFinite(+v) ? +v : 0;
+function parseCoachWorkouts(text) {
+  const out = [];
+  for (const m of String(text).matchAll(WBLOCK)) {
+    try {
+      const j = JSON.parse(m[1]), name = String(j.nombre || 'Entreno del entrenador').slice(0, 40), cat = String(j.categoria || '').slice(0, 24);
+      if (j.tipo === 'gym' && Array.isArray(j.ejercicios) && j.ejercicios.length) {
+        const w = { kind: 'gym', name, category: cat, exercises: j.ejercicios.slice(0, 12).map(e => ({ name: e.nombre, sets: e.series, reps: e.reps || 10, load: e.peso_corporal ? 'body' : 'weight', weight: nv(e.kg), rest: e.descanso, mode: e.segundos > 0 ? 'time' : 'reps', secs: e.segundos })) };
+        if (sane(w)) out.push(normalize(w));
+      } else if (Array.isArray(j.fases) && j.fases.length) {
+        const w = { name, category: cat, prep: j.preparacion, rounds: j.rondas, sets: j.series, setRest: j.descanso_series, phases: j.fases.slice(0, 12).map(f => {
+          const work = f.tipo !== 'descanso', p = { type: work ? 'work' : 'rest', name: f.nombre, dur: f.segundos || 30 };
+          if (work && f.distancia_m > 0) { p.m = 'dist'; p.dist = f.distancia_m; p.du = f.distancia_m >= 1000 ? 'km' : 'm'; p.pace = f.ritmo_s_km || 0; }
+          else if (work && f.reps > 0) { p.m = 'reps'; p.reps = f.reps; p.weight = nv(f.kg); }
+          return p; }) };
+        if (sane(w)) out.push(normalizeInt(w));
+      }
+    } catch {}
+  }
+  return out;
+}
+const coachClean = t => String(t).replace(/```entreno[\s\S]*?(```|$)/g, '').trim();
+const wSummary = w => w.kind === 'gym' ? `${w.exercises.length} ejercicios · ` + w.exercises.slice(0, 3).map(e => e.name).join(', ') + (w.exercises.length > 3 ? '…' : '') : `${w.phases.filter(p => p.type === 'work').length} ejercicios · ${w.rounds} rondas`;
+const COACH_CHIPS = ['Analiza mi semana', 'Crea un entreno para hoy', '¿Qué entreno hago hoy?', 'Revisa mi nutrición', '¿Cómo mejoro mi sueño?', '¿Estoy progresando?'];
 function mdLite(t) {
   const lines = esc(String(t)).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:!?]|$)/gm, '$1<i>$2</i>').split('\n'); let out = '', ul = false;
   for (const raw of lines) {
@@ -2629,7 +2661,7 @@ function mdLite(t) {
 function paintCoach() {
   const box = $('#co-msgs');
   const welcome = `<div class="cm bot"><p>Soy tu entrenador. Tengo a mano tus entrenos, sueño, nutrición y recuperación. ¿Qué quieres saber?</p></div>`;
-  box.innerHTML = welcome + coach.msgs.map(m => `<div class="cm ${m.role === 'user' ? 'me' : 'bot'}${m.err ? ' err' : ''}">${m.role === 'user' ? `<p>${esc(m.text)}</p>` : (m.text ? mdLite(m.text) : '<p class="typing">Pensando…</p>')}</div>`).join('');
+  box.innerHTML = welcome + coach.msgs.map(m => `<div class="cm ${m.role === 'user' ? 'me' : 'bot'}${m.err ? ' err' : ''}">${m.role === 'user' ? `<p>${esc(m.text)}</p>` : (m.text ? mdLite(coachClean(m.text)) + (m.busyDone ? parseCoachWorkouts(m.text).map((w, i) => `<div class="cw"><b>${esc(w.name)}</b><small>${esc(wSummary(w))}</small><button class="pill" type="button" data-cw="${coach.msgs.indexOf(m)}:${i}">Guardar en Entrenos</button></div>`).join('') : '') : '<p class="typing">Pensando…</p>')}</div>`).join('');
   $('#co-chips').classList.toggle('hidden', coach.msgs.length > 0);
   $('#co-send').disabled = coach.busy; box.scrollTop = box.scrollHeight;
 }
@@ -2653,8 +2685,13 @@ async function coachSend(text) {
     if (e && e.text) { bot.text = e.text; bot.err = false; }
     else bot.text = c === 'not_granted' ? 'Para hablar con el entrenador tienes que aceptar el permiso cuando aparezca.' : c === 'rate_limited' ? 'Has hecho muchas consultas seguidas. Espera un momento y vuelve a probar.' : 'No he podido responder ahora mismo. Inténtalo de nuevo en un momento.';
   }
-  coach.busy = false; paintCoach();
+  bot.busyDone = true; coach.busy = false; paintCoach();
 }
+$('#co-msgs').addEventListener('click', e => {
+  const b = e.target.closest('[data-cw]'); if (!b) return;
+  const [mi, wi] = b.dataset.cw.split(':').map(Number), m = coach.msgs[mi], w = m && parseCoachWorkouts(m.text)[wi]; if (!w) return;
+  w.id = uid(); workouts.unshift(w); saveAll(); b.disabled = true; b.textContent = 'Guardado en Entrenos ✓'; toast('Entreno añadido a Entrenos');
+});
 $('#co-form').addEventListener('submit', e => { e.preventDefault(); coachSend($('#co-in').value); });
 $('#co-chips').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) coachSend(b.dataset.q); });
 $('#co-back').addEventListener('click', () => goBack());
